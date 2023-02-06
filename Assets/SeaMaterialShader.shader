@@ -2,16 +2,22 @@ Shader "Custom/SeaMaterialShader"
 {
     Properties
     {
+        _MainTex ("Albedo (RGB)", 2D) = "white" {}
         [NoScaleOffset] _SeaNoiseFlowTex ("FlowNoise(Alpha)", 2D) = "black" {}
         [NoScaleOffset] _WaterDistortionNormalMap ("Normals", 2D) = "bump" {}
-		_ParallaxStrength ("Parallax Strength", Range(0, 0.1)) = 0
+
+		_ParallaxStrength ("Parallax Strength", Range(0, 0.4)) = 0
+        _ParallaxRaymarchingSteps ("Parallax Raymarching Steps", float) = 10
+        _MaxHeightWave ("Maximu Height of a Wave", float) = 4
         _ParallaxBias ("Parallax Bias", Range(0,1)) = 0.42
 
-        _Tiling ("Tiling", Float) = 1
-        _WaterDistortionSpeed ("Speed", Float) = 1
-
         _Color ("Color", Color) = (1,1,1,1)
-        _MainTex ("Albedo (RGB)", 2D) = "white" {}
+        _WaterDistortionSpeed ("Speed", Float) = 1
+        _UJump ("U jump per phase", Range(-0.25, 0.25)) = 0.25
+		_VJump ("V jump per phase", Range(-0.25, 0.25)) = 0.25
+
+        _WaterTiling ("Water Tiling", Float) = 1
+        _WavesTiling ("Waves Tiling", Float) = 1
         _Glossiness ("Smoothness", Range(0,1)) = 0.5
         _Metallic ("Metallic", Range(0,1)) = 0.0
 
@@ -20,8 +26,6 @@ Shader "Custom/SeaMaterialShader"
         _WaveC ("Wave C", Vector) = (1,1,0.15,10)
         _WaveD ("Wave D", Vector) = (0.5,0.5,0.15,15)
         _WaveE ("Wave D", Vector) = (0.5,0.5,0.15,15)
-        _UJump ("U jump per phase", Range(-0.25, 0.25)) = 0.25
-		_VJump ("V jump per phase", Range(-0.25, 0.25)) = 0.25
     }
     SubShader
     {
@@ -32,6 +36,7 @@ Shader "Custom/SeaMaterialShader"
         
         #pragma target 3.0
         #pragma surface surf Standard fullforwardshadows vertex:vert addshadow
+        #pragma shader_feature _PARALLAX_MAP
 
         #include "seaMaterialFlow.cginc"
         #include "SeaMaterialParallax.cginc"
@@ -51,12 +56,15 @@ Shader "Custom/SeaMaterialShader"
         half _Glossiness;
         half _Metallic;
         float _ParallaxStrength;
+        float _ParallaxRaymarchingSteps;
         float _FlowScale;
         float _ParallaxBias;
         float _UJump;
         float _VJump;
-        float _Tiling;
+        float _WaterTiling;
+        float _WavesTiling;
         float _WaterDistortionSpeed;
+        float _MaxHeightWave;
         fixed4 _Color;
         float4 _WaveA;
         float4 _WaveB;
@@ -71,12 +79,13 @@ Shader "Custom/SeaMaterialShader"
 
         float2 ParallaxOffset(float3 p, float2 viewDir)
         {
-            float height = WaveHeightFunction(_WaveA, p);
-            height += WaveHeightFunction(_WaveB, p);
-            height += WaveHeightFunction(_WaveC, p);
-            height += WaveHeightFunction(_WaveD, p);
-            height += WaveHeightFunction(_WaveE, p);
+            float height = WaveHeightFunction(_WaveA, p.xz);
+            height += WaveHeightFunction(_WaveB, p.xz);
+            height += WaveHeightFunction(_WaveC, p.xz);
+            height += WaveHeightFunction(_WaveD, p.xz);
+            height += WaveHeightFunction(_WaveE, p.xz);
 
+            height /= _MaxHeightWave;
             height -= 0.5;
             height *= _ParallaxStrength;
             return viewDir * height;
@@ -84,7 +93,40 @@ Shader "Custom/SeaMaterialShader"
 
         float2 ParallaxRaymarching(float3 p, float2 viewDir)
         {
+	        const float stepSize = 1 / _ParallaxRaymarchingSteps;
+            float2 uvDelta = viewDir * (stepSize * _ParallaxStrength);
+
             float2 uvOffset = 0;
+            float stepHeight = 1;
+            float height = 0;
+
+            float2 prevUVOffset = uvOffset;
+	        float prevStepHeight = stepHeight;
+	        float prevHeight = height;
+
+
+            while(stepHeight > height)
+            {
+                prevUVOffset = uvOffset;
+	            prevStepHeight = stepHeight;
+	            prevHeight = height;
+
+                height = 0;
+                height += WaveHeightFunction(_WaveA, p.xz + uvOffset);
+                height += WaveHeightFunction(_WaveB, p.xz + uvOffset);
+                height += WaveHeightFunction(_WaveC, p.xz + uvOffset);
+                height += WaveHeightFunction(_WaveD, p.xz + uvOffset);
+                height += WaveHeightFunction(_WaveE, p.xz + uvOffset);
+                height /= (_MaxHeightWave);
+                uvOffset -= uvDelta;
+                stepHeight -= stepSize;
+            } 
+
+            float prevDifference = prevStepHeight - prevHeight;
+	        float difference = height - stepHeight;
+	        float t = prevDifference / (prevDifference + difference);
+            uvOffset = prevUVOffset - uvDelta * t;
+
             return uvOffset;
         }
 
@@ -94,23 +136,21 @@ Shader "Custom/SeaMaterialShader"
             IN.tangentViewDir.xy /= (IN.tangentViewDir.z + _ParallaxBias);
 
 		    #if !defined(PARALLAX_FUNCTION)
-			    #define PARALLAX_FUNCTION ParallaxOffset
+			    #define PARALLAX_FUNCTION ParallaxRaymarching
 		    #endif
 
-            dv.y -= 0.5;
-            float2 uvOffset = PARALLAX_FUNCTION(IN.v, IN.tangentViewDir);
-	        IN.uv_MainTex.xy += uvOffset;
 
-            //IN.uv_MainTex.zw += uvOffset;
-            //IN.uv_MainTex += dv.xz * IN.tangentViewDir * _ParallaxStrength;
+            float2 uvOffset = PARALLAX_FUNCTION(IN.v, IN.tangentViewDir.xy);
+	        IN.uv_MainTex.xy += uvOffset;
         }
 
         void vert(inout appdata_full v, out Input o)
         {
             UNITY_INITIALIZE_OUTPUT(Input, o);
-            o.v = v.vertex.xyz;
 
             #if defined(SEA_PARALLAX)
+            	v.tangent.xyz = normalize(v.tangent.xyz);
+			    v.normal = normalize(v.normal);
 		        float3x3 objectToTangent = float3x3(
 			        v.tangent.xyz,
 			        cross(v.normal, v.tangent.xyz) * v.tangent.w,
@@ -120,8 +160,7 @@ Shader "Custom/SeaMaterialShader"
                 o.tangentViewDir = mul(objectToTangent, ObjSpaceViewDir(v.vertex));
 	        #endif
 
-            //v.vertex.xyz += dv;
-            //v.normal = normalize(cross(binormal, tangent));
+            o.v = v.vertex.xyz * _WavesTiling;
         }
 
         void surf (Input IN, inout SurfaceOutputStandard o)
@@ -141,23 +180,23 @@ Shader "Custom/SeaMaterialShader"
             foam *= foam;
 
 
-
-            //como a altura do parallax depende do uv, ele será deixado de fora
             #if defined(SEA_PARALLAX)
                 ApplyParallax(IN, dv);
 	        #endif
 
-            float2 flowVector = 0; 
+            if(IN.uv_MainTex.x > 1 || IN.uv_MainTex.y > 1)
+            {
+                discard;
+            }
 
-            //para cria a ilusão de água corrente, basta usar algum vetor válido no flowVector:
-            //float flowVectyor = float2(1,1);
+            float2 flowVector = 0; 
 
             float noise = tex2D(_SeaNoiseFlowTex, IN.uv_MainTex).a;
             float noiseTime = noise + _Time.y * _WaterDistortionSpeed;
             float2 jump = float2(_UJump, _VJump);
 
-            float3 uvwA = SeaFlowUVW(IN.uv_MainTex, flowVector, jump, _Tiling, noiseTime, false);
-			float3 uvwB = SeaFlowUVW(IN.uv_MainTex, flowVector, jump, _Tiling, noiseTime, true);
+            float3 uvwA = SeaFlowUVW(IN.uv_MainTex, flowVector, jump, _WaterTiling, noiseTime, false);
+			float3 uvwB = SeaFlowUVW(IN.uv_MainTex, flowVector, jump, _WaterTiling, noiseTime, true);
 
             float3 normalA = UnpackNormal(tex2D(_WaterDistortionNormalMap, uvwA.xy)) * uvwA.z;
 			float3 normalB = UnpackNormal(tex2D(_WaterDistortionNormalMap, uvwB.xy)) * uvwB.z;

@@ -17,17 +17,19 @@ float3 SeaFlowUVW (float2 uv, float2 flowVector, float2 jump, float tiling, floa
 }
 
 //versão simplificada da função que calcula as ondas(todo: verificar a possibilidade da utilização de todos os eixos)
-inline float WaveHeightFunction(float4 wave, float3 p)
+inline float WaveHeightFunction(float4 wave, float2 p)
 {
 	float steepness = wave.z;
 	float wavelength = wave.w;
 	float k = 2 * UNITY_PI / wavelength;
 	float c = sqrt(9.8 / k);
 	float2 d = normalize(wave.xy);
-	float f = k * (dot(d, p.xz) - c * _Time.y);
+
+	//p.xz !!
+	float f = k * (dot(d, p.xy) - c * _Time.y);
 	float a = steepness / k;
 
-    return a * sin(f);
+    return (sin(f) * a + a);
 }
 
 inline float3 waveFunction(float4 wave, float3 p, inout float3 tangent, inout float3 binormal)
@@ -51,8 +53,8 @@ inline float3 waveFunction(float4 wave, float3 p, inout float3 tangent, inout fl
 		-d.y * d.y * (steepness * sin(f))
 	);
 	float3 v = float3(
-		d.x * (a * cos(f)),
-		a * sin(f),
+		d.x * (a * cos(f) + a),
+		a * sin(f) + a,
 		d.y * (a * cos(f))
 	);
     return v;

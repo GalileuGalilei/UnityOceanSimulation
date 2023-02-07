@@ -201,7 +201,7 @@ Shader "Custom/SeaMaterialShader"
             float3 normalA = UnpackNormal(tex2D(_WaterDistortionNormalMap, uvwA.xy)) * uvwA.z;
 			float3 normalB = UnpackNormal(tex2D(_WaterDistortionNormalMap, uvwB.xy)) * uvwB.z;
 
-            o.Normal = normalize(normalA + normalB);
+            o.Normal = BlendNormals(normalA.xzy, normalB.xzy).xzy;
             o.Normal = BlendNormals(normal.xzy, o.Normal);
 
 			fixed4 texA = tex2D(_MainTex, uvwA.xy) * uvwA.z;

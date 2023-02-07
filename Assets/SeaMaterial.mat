@@ -61,7 +61,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SeaNoiseFlowTex:
-        m_Texture: {fileID: 2800000, guid: b10e0965f09ac744293b9298b830e09c, type: 3}
+        m_Texture: {fileID: 2800000, guid: 7111138ecc4cb084fb7587103a102469, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SeaNoiseTex:
@@ -83,15 +83,15 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.42
     - _GlossyReflections: 1
-    - _MaxHeightWave: 7.2797475
+    - _MaxHeightWave: 5.5303164
     - _Metallic: 0
     - _Mode: 0
     - _NormalStep: 0.227
     - _OcclusionStrength: 1
     - _Parallax: 0.02
     - _ParallaxBias: 1
-    - _ParallaxRaymarchingSteps: 84.54
-    - _ParallaxStrength: 0.1
+    - _ParallaxRaymarchingSteps: 10
+    - _ParallaxStrength: 0.035
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _Speed: 4.91
@@ -102,16 +102,16 @@ Material:
     - _UVSec: 0
     - _VJump: 0.204
     - _WaterDistortionSpeed: 1
-    - _WaterTiling: 2.22
+    - _WaterTiling: 5.83
     - _Wavelength: 10
-    - _WavesTiling: 1.24
+    - _WavesTiling: 1.89
     - _ZWrite: 1
     m_Colors:
     - _Color: {r: 0.14177644, g: 0.28285432, b: 0.509434, a: 1}
     - _Direction: {r: 0.26, g: 1.33, b: 0, a: 0}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _WaveA: {r: 8.35, g: 3.4, b: 0.35, a: 30.28}
-    - _WaveB: {r: 1.56, g: 0.19, b: 0.28, a: 21}
+    - _WaveA: {r: 8.35, g: 3.4, b: 0.3, a: 30.28}
+    - _WaveB: {r: 1.56, g: 0.19, b: 0.17, a: 21}
     - _WaveC: {r: 0.64, g: 0.36, b: 0.27, a: 13}
     - _WaveD: {r: 2.02, g: 2.32, b: 0.1, a: 8.8}
     - _WaveE: {r: -0.9, g: -0.51, b: 0.05, a: 6.6}

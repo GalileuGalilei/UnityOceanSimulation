@@ -8,8 +8,6 @@ Shader "Custom/SeaMaterialShader"
 
 		_ParallaxStrength ("Parallax Strength", Range(0, 0.4)) = 0
         _ParallaxRaymarchingSteps ("Parallax Raymarching Steps", float) = 10
-        _MaxHeightWave ("Maximu Height of a Wave", float) = 4
-        _ParallaxBias ("Parallax Bias", Range(0,1)) = 0.42
 
         _Color ("Color", Color) = (1,1,1,1)
         _WaterDistortionSpeed ("Speed", Float) = 1
@@ -34,25 +32,7 @@ Shader "Custom/SeaMaterialShader"
 
         CGPROGRAM
         
-        #pragma target 3.0
-        #pragma surface surf Standard fullforwardshadows vertex:vert addshadow
-        #pragma shader_feature _PARALLAX_MAP
-
-        #include "seaMaterialFlow.cginc"
-        #include "SeaMaterialParallax.cginc"
-
         sampler2D _MainTex, _SeaNoiseFlowTex, _WaterDistortionNormalMap;
-
-        struct Input
-        {
-            float2 uv_MainTex;
-            float3 v;
-
-            #if defined(SEA_PARALLAX)
-		        float3 tangentViewDir : TEXCOORD8;
-	        #endif
-        };
-
         half _Glossiness;
         half _Metallic;
         float _ParallaxStrength;
@@ -71,78 +51,43 @@ Shader "Custom/SeaMaterialShader"
         float4 _WaveC;
         float4 _WaveD;
         float4 _WaveE;
+
+        #pragma target 3.0
+        #pragma surface surf Standard fullforwardshadows vertex:vert addshadow
+        #pragma shader_feature _PARALLAX_MAP
+
+        #include "seaMaterialFlow.cginc"
+        //#include "SeaMaterialParallax.cginc"
         
+        struct Input
+        {
+            float2 uv_MainTex;
+            float3 v;
+
+            #if defined(SEA_PARALLAX)
+		        float3 tangentViewDir : TEXCOORD8;
+	        #endif
+        };
 
         UNITY_INSTANCING_BUFFER_START(Props)
             // put more per-instance properties here
         UNITY_INSTANCING_BUFFER_END(Props)
 
-        float2 ParallaxOffset(float3 p, float2 viewDir)
-        {
-            float height = WaveHeightFunction(_WaveA, p.xz);
-            height += WaveHeightFunction(_WaveB, p.xz);
-            height += WaveHeightFunction(_WaveC, p.xz);
-            height += WaveHeightFunction(_WaveD, p.xz);
-            height += WaveHeightFunction(_WaveE, p.xz);
-
-            height /= _MaxHeightWave;
-            height -= 0.5;
-            height *= _ParallaxStrength;
-            return viewDir * height;
-        }
-
-        float2 ParallaxRaymarching(float3 p, float2 viewDir)
-        {
-	        const float stepSize = 1 / _ParallaxRaymarchingSteps;
-            float2 uvDelta = viewDir * (stepSize * _ParallaxStrength);
-
-            float2 uvOffset = 0;
-            float stepHeight = 1;
-            float height = 0;
-
-            float2 prevUVOffset = uvOffset;
-	        float prevStepHeight = stepHeight;
-	        float prevHeight = height;
-
-
-            while(stepHeight > height)
+        #if defined (SEA_PARALLAX)
+            void ApplyParallax(inout Input IN, float3 dv)
             {
-                prevUVOffset = uvOffset;
-	            prevStepHeight = stepHeight;
-	            prevHeight = height;
+                IN.tangentViewDir = normalize(IN.tangentViewDir);
+                IN.tangentViewDir.xy /= (IN.tangentViewDir.z + 0.42);
 
-                height = 0;
-                height += WaveHeightFunction(_WaveA, p.xz + uvOffset);
-                height += WaveHeightFunction(_WaveB, p.xz + uvOffset);
-                height += WaveHeightFunction(_WaveC, p.xz + uvOffset);
-                height += WaveHeightFunction(_WaveD, p.xz + uvOffset);
-                height += WaveHeightFunction(_WaveE, p.xz + uvOffset);
-                height /= (_MaxHeightWave);
-                uvOffset -= uvDelta;
-                stepHeight -= stepSize;
-            } 
-
-            float prevDifference = prevStepHeight - prevHeight;
-	        float difference = height - stepHeight;
-	        float t = prevDifference / (prevDifference + difference);
-            uvOffset = prevUVOffset - uvDelta * t;
-
-            return uvOffset;
-        }
-
-        void ApplyParallax(inout Input IN, float3 dv)
-        {
-            IN.tangentViewDir = normalize(IN.tangentViewDir);
-            IN.tangentViewDir.xy /= (IN.tangentViewDir.z + _ParallaxBias);
-
-		    #if !defined(PARALLAX_FUNCTION)
-			    #define PARALLAX_FUNCTION ParallaxRaymarching
-		    #endif
+	            #if !defined(PARALLAX_FUNCTION)
+		            #define PARALLAX_FUNCTION ParallaxRaymarching
+	            #endif
 
 
-            float2 uvOffset = PARALLAX_FUNCTION(IN.v, IN.tangentViewDir.xy);
-	        IN.uv_MainTex.xy += uvOffset;
-        }
+                float2 uvOffset = PARALLAX_FUNCTION(IN.v, IN.tangentViewDir.xy);
+	            IN.uv_MainTex.xy += uvOffset;
+            }
+        #endif
 
         void vert(inout appdata_full v, out Input o)
         {
